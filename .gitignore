@@ -1,0 +1,10 @@
+.venv/
+.venv311/
+.python/
+.uv-cache/
+.env
+__pycache__/
+*.py[cod]
+.idea/
+models/*
+!models/.gitkeep

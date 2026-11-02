@@ -1,0 +1,11 @@
+services:
+  stt:
+    build: .
+    env_file: .env
+    ports:
+      - "${PORT:-8000}:${PORT:-8000}"
+    volumes:
+      - ./models:/srv/app/models:ro
+    restart: unless-stopped
+    mem_limit: 4g
+    cpus: 4

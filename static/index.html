@@ -1,0 +1,9 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vietnamese STT</title>
+<style>body{font:16px system-ui;background:#111827;color:#e5e7eb;max-width:760px;margin:3rem auto;padding:0 1rem}button,input{padding:.7rem;margin:.3rem;border-radius:.5rem}textarea{width:100%;height:16rem;padding:1rem;box-sizing:border-box}button{cursor:pointer}small{color:#aab8cd}</style></head>
+<body><h1>Vietnamese Speech-to-Text</h1><p>Nhận dạng sau khi kết thúc mỗi phát ngôn.</p>
+<p id="model">Model: đang kiểm tra</p><p id="connection">WebSocket: chưa kết nối</p><p id="mic">Microphone: chưa hoạt động</p>
+<label>API key (nếu server yêu cầu): <input id="key" type="password" autocomplete="off"></label><br>
+<button id="start">Start Recording</button><button id="stop" disabled>Stop Recording</button>
+<p id="latency"></p><textarea id="text" aria-label="Transcript"></textarea><p><button id="copy">Copy Transcript</button><button id="clear">Clear Transcript</button></p>
+<small>Microphone yêu cầu HTTPS hoặc localhost. Trang demo giữ API key trong bộ nhớ của tab.</small>
+<script src="/static/app.js"></script></body></html>

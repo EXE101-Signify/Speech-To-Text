@@ -1,0 +1,6 @@
+numpy>=1.26,<3
+soxr>=0.5,<2
+sherpa-onnx>=1.12,<2
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+python-multipart>=0.0.12,<1
