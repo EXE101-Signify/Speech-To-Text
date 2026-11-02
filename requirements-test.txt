@@ -1,5 +1,4 @@
 -r requirements-api.txt
-sounddevice>=0.5,<1
 pytest>=8,<9
 httpx>=0.27,<1
 httpx>=0.27,<1

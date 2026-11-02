@@ -1,17 +1,10 @@
 """Small deterministic checks for the audio pipeline's boundary behavior."""
 
-import sys
-import types
 import unittest
 
 import numpy as np
 
-try:
-    import sounddevice
-except ImportError:
-    sys.modules["sounddevice"] = types.ModuleType("sounddevice")
-
-from app.audio_capture import StreamingResampler
+from app.audio_resampling import StreamingResampler
 from app.vad_processor import VadProcessor
 
 

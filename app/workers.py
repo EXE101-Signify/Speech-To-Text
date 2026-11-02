@@ -8,7 +8,8 @@ import numpy as np
 import sounddevice as sd
 from PySide6.QtCore import QObject, Signal
 
-from app.audio_capture import StreamingResampler, choose_sample_rate
+from app.audio_capture import choose_sample_rate
+from app.audio_resampling import StreamingResampler
 from app.model_manager import create_recognizer, create_vad
 from app.speech_recognizer import recognize
 from app.vad_processor import VadProcessor
