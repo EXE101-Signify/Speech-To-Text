@@ -24,7 +24,7 @@ from app.vad_processor import VadProcessor
 
 ORIGINS = [x.strip() for x in os.getenv("STT_ALLOWED_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000").split(",") if x.strip()]
 API_KEY = os.getenv("STT_API_KEY", "")
-MAX_SESSIONS = int(os.getenv("STT_MAX_SESSIONS", "8"))
+MAX_SESSIONS = int(os.getenv("STT_MAX_SESSIONS", "4"))
 MAX_SECONDS = int(os.getenv("STT_MAX_SESSION_SECONDS", "600"))
 MAX_FRAME = 32768
 STATIC = Path(__file__).resolve().parents[1] / "static"
@@ -34,7 +34,7 @@ active_sessions = 0
 
 @asynccontextmanager
 async def lifespan(app):
-    if os.getenv("STT_ENV", "development") == "production" and not API_KEY:
+    if os.getenv("APP_ENV", "development") == "production" and not API_KEY:
         raise RuntimeError("STT_API_KEY is required in production")
     await asyncio.to_thread(service.load_model)
     yield

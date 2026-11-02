@@ -1,4 +1,5 @@
 """Shared offline model. Serialize access to the Sherpa recognizer."""
+import os
 import threading
 from app.model_manager import create_recognizer
 from app.speech_recognizer import recognize
@@ -20,7 +21,7 @@ class SpeechRecognitionService:
             return recognize(self.recognizer, samples)
 
     def get_model_info(self):
-        return {"name": "zipformer-vietnamese-30m-int8", "version": "2026-02-09",
+        return {"name": os.getenv("MODEL_NAME", "zipformer-vietnamese-30m-int8"), "version": "2026-02-09",
                 "inference_engine": "sherpa-onnx", "language": "vi",
                 "sample_rate": 16000, "inference_mode": "offline-transducer-vad",
                 "device": "cpu"}

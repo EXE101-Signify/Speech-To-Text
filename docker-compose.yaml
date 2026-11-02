@@ -1,0 +1,34 @@
+services:
+  vietnamese-stt:
+    image: ${STT_IMAGE:-vietnamese-stt:local}
+    container_name: vietnamese-stt
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      HOST: ${HOST:-0.0.0.0}
+      PORT: ${PORT:-8000}
+      MODEL_PATH: /app/models
+      MODEL_NAME: ${MODEL_NAME:-zipformer-vietnamese-30m-int8}
+      STT_CPU_THREADS: ${SHERPA_NUM_THREADS:-3}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      STT_API_KEY: ${STT_API_KEY:?Set STT_API_KEY in .env}
+      STT_ALLOWED_ORIGINS: ${STT_ALLOWED_ORIGINS:?Set STT_ALLOWED_ORIGINS in .env}
+      STT_MAX_SESSIONS: ${STT_MAX_SESSIONS:-4}
+      STT_MAX_SESSION_SECONDS: ${STT_MAX_SESSION_SECONDS:-600}
+    volumes:
+      - ${MODEL_HOST_PATH:-./models}:/app/models:ro
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 180s
+      retries: 3
+    cpus: 4.0
+    mem_limit: 6g
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

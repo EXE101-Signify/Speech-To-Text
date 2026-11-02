@@ -2,6 +2,9 @@
 .uv-cache
 .python
 .git
+.env
+.env.*
+!.env.example
 .idea
 models
 __pycache__

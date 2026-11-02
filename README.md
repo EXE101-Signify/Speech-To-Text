@@ -103,3 +103,29 @@ Script cuối chạy model thật với WAV mẫu qua REST và WebSocket. Không
 Compose mount model read-only, không tải lại model; image chạy CPU và một tiến trình Uvicorn, có healthcheck và giới hạn tài nguyên. Docker host cần quyền đọc model cho UID 10001. Đặt reverse proxy HTTPS/WSS phía trước; proxy cần hỗ trợ WebSocket upgrade, timeout đủ dài và giới hạn kích thước request. Không public trực tiếp backend production nếu chưa cấu hình proxy, HTTPS, API key, origin và giới hạn request. CORS/origin được thiết lập qua STT_ALLOWED_ORIGINS dạng danh sách phân cách bằng dấu phẩy. Production yêu cầu STT_API_KEY; browser demo yêu cầu người dùng nhập key, không nhúng key vào mã nguồn. WebSocket xác thực bằng api_key trong start hoặc header X-API-Key cho client không phải trình duyệt. Bảo vệ key trong HTTPS và tránh ghi message vào log proxy.
 
 STT_CPU_THREADS, STT_MAX_SESSIONS, STT_MAX_SESSION_SECONDS, STT_VAD_THRESHOLD và STT_VAD_SILENCE được cấu hình qua biến môi trường. Chỉ WAV PCM 16-bit được hỗ trợ cho upload; lỗi file trả JSON success=false. Giới hạn upload trong ứng dụng được kiểm tra sau khi multipart được server phân tích: cấu hình giới hạn request tại reverse proxy để từ chối upload lớn trước khi vào ứng dụng. Chưa có rate limiting theo IP; dùng reverse proxy để áp dụng. Không benchmark khả năng chịu tải.
+
+## CI/CD GitHub Actions và Dokploy
+
+Workflow tại .github/workflows/workflow.yaml chạy CI cho pull request, push main và chạy thủ công. Chỉ push main hoặc workflow_dispatch từ main mới build/push image và deploy. Image được build cho linux/amd64 với tag latest và commit SHA. Dokploy Application phải trỏ tới Docker Hub image latest và deploy bằng API. Trigger API thành công chỉ xác nhận Dokploy nhận yêu cầu; workflow sau đó đợi public health endpoint tối đa 10 phút, nhưng health xanh không tự chứng minh ứng dụng đã pull chính xác SHA. Tắt Docker Hub webhook/auto-deploy và mọi auto-deploy Git integration khác để tránh deploy trùng.
+
+Thêm các GitHub Actions repository secrets:
+
+    DOCKERHUB_USERNAME
+    DOCKERHUB_TOKEN
+    DOCKERHUB_REGISTRY=docker.io
+    DOKPLOY_URL=https://dokploy.hood.io.vn
+    DOKPLOY_API_KEY
+    DOKPLOY_APPLICATION_ID
+    STT_HEALTH_URL=https://stt.hood.io.vn/api/v1/health   (tùy chọn)
+
+DOCKERHUB_TOKEN nên là access token có quyền write cho repository vietnamese-stt; không dùng mật khẩu tài khoản. Tạo repository Docker Hub trước. DOKPLOY_APPLICATION_ID lấy từ Application đã tạo trong Dokploy. Tạo Dokploy Application kiểu Docker Image, image là <DOCKERHUB_USERNAME>/vietnamese-stt:latest, registry Docker Hub và pull/deploy khi API được gọi. Không cấu hình Docker Hub webhook để trigger thêm một lần deploy. Lưu API key, CORS origin, CPU threads và giới hạn phiên trong phần Environment của Application.
+
+Trong Application, cấu hình persistent storage riêng của Dokploy, mount vào /app/models ở chế độ read-only. Tải model release chính thức, giải nén thư mục sherpa-onnx-zipformer-vi-30M-int8-2026-02-09 và đặt bốn file encoder.int8.onnx, decoder.onnx, joiner.int8.onnx, tokens.txt trong thư mục con /app/models/zipformer-vi-30m-int8; đặt silero_vad.onnx trực tiếp trong /app/models. Bảo đảm UID 10001 trong container có quyền đọc file. Volume của Compose local không được tự động chia sẻ với storage Application của Dokploy. Compose file phục vụ local/self-managed; pipeline production dùng Docker Image Application, không build source trên VPS.
+
+Thiết lập Application domain stt.hood.io.vn, target container port 8000, HTTPS Let's Encrypt qua Traefik đang do Dokploy quản lý và bật WebSocket forwarding. Không publish port 8000 trực tiếp lên VPS; kiểm tra DNS A/AAAA trỏ tới VPS và domain không đụng router của ứng dụng khác. CORS STT_ALLOWED_ORIGINS chứa chính xác origin frontend, ví dụ https://hood.io.vn. Health endpoint vẫn công khai để kiểm tra. REST cần header X-API-Key; trình duyệt demo gửi key trong thông điệp WebSocket start. Dùng HTTPS/WSS.
+
+Sau mỗi push main, xem Actions để biết CI, push image, Dokploy trigger và health check. Xem runtime logs trong Dokploy Application; Docker Hub chứa latest và SHA tương ứng trong log workflow. Rollback an toàn: đổi Dokploy image tag từ latest sang SHA đã biết ổn định rồi Redeploy; sau đó kiểm tra health. Có thể chuyển lại latest sau khi xử lý lỗi.
+
+Các endpoint triển khai: https://stt.hood.io.vn/api/v1/health, /api/v1/models/current, POST /api/v1/transcriptions và wss://stt.hood.io.vn/api/v1/stt/stream. Workflow không truy vấn trạng thái deploy nội bộ của Dokploy; nó trigger REST API rồi xác minh public health. Điều đó không khẳng định tag SHA đang chạy. Kiểm tra deployment/log image digest trong Dokploy khi cần xác minh phiên bản chính xác.
+
+Docker Compose không thể chạy container trong môi trường phát triển hiện tại nếu Docker daemon chưa bật. Compose YAML vẫn có thể kiểm tra độc lập bằng docker compose config. Dokploy API, DNS, certificate và VPS chưa được truy cập từ CI local nên cần cấu hình thủ công theo các bước trên.

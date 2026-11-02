@@ -1,0 +1,102 @@
+name: Vietnamese STT - CI/CD Dokploy
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vietnamese-stt-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-test.txt
+      - run: python -m pip install -r requirements-test.txt
+      - run: python -m compileall -q app config.py scripts
+      - run: python -c "from app.main import app; print(app.title)"
+      - run: pytest -q
+
+  build-and-push:
+    needs: ci
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set image
+        id: image
+        env:
+          REGISTRY: ${{ secrets.DOCKERHUB_REGISTRY }}
+          USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          test -n "$USERNAME" || { echo "DOCKERHUB_USERNAME secret is required"; exit 1; }
+          registry="${REGISTRY:-docker.io}"
+          echo "image=${registry}/${USERNAME,,}/vietnamese-stt" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.DOCKERHUB_REGISTRY || 'docker.io' }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image }}:latest
+            ${{ steps.image.outputs.image }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+  deploy:
+    needs: build-and-push
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger Dokploy deployment
+        env:
+          BASE_URL: ${{ secrets.DOKPLOY_URL }}
+          API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          APPLICATION_ID: ${{ secrets.DOKPLOY_APPLICATION_ID }}
+        run: |
+          test -n "$BASE_URL" -a -n "$API_KEY" -a -n "$APPLICATION_ID" || {
+            echo "Dokploy GitHub secrets are incomplete"; exit 1;
+          }
+          curl --silent --show-error --fail-with-body --max-time 30 \
+            -X POST "${BASE_URL%/}/api/application.deploy" \
+            -H 'Content-Type: application/json' \
+            -H "x-api-key: $API_KEY" \
+            --data "{\"applicationId\":\"$APPLICATION_ID\"}" \
+            -o /tmp/dokploy-response.json
+          echo "Dokploy accepted deployment trigger."
+      - name: Verify public health
+        env:
+          HEALTH_URL: ${{ secrets.STT_HEALTH_URL || 'https://stt.hood.io.vn/api/v1/health' }}
+        run: |
+          for attempt in $(seq 1 40); do
+            code=$(curl --silent --output /tmp/health.json --write-out '%{http_code}' \
+              --max-time 10 "$HEALTH_URL" || true)
+            if [ "$code" = "200" ] && python -c "import json; d=json.load(open('/tmp/health.json')); assert d.get('status') == 'ok' and d.get('model_loaded') is True"; then
+              echo "Public health check passed."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Dokploy trigger returned, but public service did not become healthy in time."
+          exit 1
